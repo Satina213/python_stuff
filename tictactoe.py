@@ -1,8 +1,8 @@
 import random
+import math
 
 
-player_letter = ""
-cpu_letter = ""
+whosewho={}
 boardstate = {
      "TL": " ",
      "TM": " ",
@@ -28,8 +28,9 @@ winning_positions = [
 ]
 
 def main():
+    global whosewho
     explanation()
-    player_letter = getXorO()
+    whosewho = getXorO()
     gameloop()
 
 def board():
@@ -64,30 +65,22 @@ def explanation():
     print("")
     print("The player who is 'X' will move first.")
     print("")
-    if player_letter == "X" or player_letter == "O":
-        print(f"You are {player_letter} this game")
+    if len(whosewho) > 0:
+        print(f"You are {whosewho["player"]} this game")
         print("")
+    board()
 
 def getXorO():
-    global player_letter
-    global cpu_letter
-    player_letter = input("Do you want to be X or O\n").upper().strip()
-    if player_letter not in ["X", "O"]:  
-        print("You must select X or O")
-        return getXorO()  # Recursive call must be returned
-    print(f"You are {player_letter} this match!")
-    if player_letter == "X":
-         cpu_letter = "O"
-    else:
-         cpu_letter = "X"
-    return player_letter  
+    while True:
+        choice = input("Do you want to be X or O?\n").upper().strip()
+        if choice in ["X", "O"]:
+            return {"player": choice, "cpu": "O" if choice == "X" else "X"}
+        print("Invalid choice. Please select X or O")
 
 def gameloop():
-    global player_letter
-    global cpu_letter
-    if player_letter == "X":
+    if whosewho["player"] == "X":
         for _ in range(9):
-            print(f"{player_letter}'s turn!")
+            print(f"{whosewho["player"]}'s turn!")
             get_input()
             if checkforwin() or checkforcat():
                 break
@@ -96,7 +89,7 @@ def gameloop():
                 break
     else:
         for _ in range(9):
-            print(f"{cpu_letter}'s turn!")
+            print(f"{whosewho["cpu"]}'s turn!")
             cpu_move()
             if checkforwin() or checkforcat():
                 break
@@ -150,74 +143,129 @@ def checkforwin():
 def get_input():
     global valid_moves
     board()
-    user_move = input("Select your move\n").upper().strip()
-    if user_move == "EXPLANATION":
-        explanation()
-        return get_input()
-    if user_move not in valid_moves:
-        print("\nInvalid Move. You can type 'Explanation' for help.")
-        return get_input()
-    if boardstate[user_move] != " ":
-         print("That square is already taken")
-         print("You can type 'explanation' for help!")
-         return get_input()
-    boardstate[user_move] = player_letter
-    #checkforwin()
-         
+    while True:
+        user_move = input("Select your move\n").upper().strip()
+        if user_move == "HELP":
+            explanation()
+            continue
+        if user_move in valid_moves and boardstate[user_move] == " ":
+            boardstate[user_move] = whosewho["player"]
+            return
+        print("Invalid move. You can type 'help' for an explanation")
+
 def aimfortwo():
     cornerPositions = ["TL", "TR", "BL", "BR"]
     for positions in winning_positions:
         values = [boardstate[pos] for pos in positions]  # Get the current board values
-        if values.count(cpu_letter) == 1 and values.count(" ") == 2:
+        if values.count(whosewho["cpu"]) == 1 and values.count(" ") == 2:
             for pos in positions:
                 if pos in cornerPositions and boardstate[pos] == " ":
-                    boardstate[pos] = cpu_letter
+                    boardstate[pos] = whosewho["cpu"]
                     return True
     return False  # No winning move found
-
 
 def trytowin():
     for positions in winning_positions:
         values = [boardstate[pos] for pos in positions]  # Get the current board values
-        if values.count(cpu_letter) == 2 and values.count(" ") == 1:
+        if values.count(whosewho["cpu"]) == 2 and values.count(" ") == 1:
             empty_index = values.index(" ")  # Find the empty spot
-            boardstate[positions[empty_index]] = cpu_letter
+            boardstate[positions[empty_index]] = whosewho["cpu"]
             return True  # Move was made, return early
     return False  # No winning move found
 
 def trytoblock():
     for positions in winning_positions:
         values = [boardstate[pos] for pos in positions]  # Get the current board values
-        if values.count(player_letter) == 2 and values.count(" ") == 1:
+        if values.count(whosewho["player"]) == 2 and values.count(" ") == 1:
             empty_index = values.index(" ")  # Find the empty spot
-            boardstate[positions[empty_index]] = cpu_letter
+            boardstate[positions[empty_index]] = whosewho["cpu"]
             return True  # Move was made, return early
     return False  # No winning move found
 
 
-def cpu_move():
-    available_moves = [move for move in valid_moves if boardstate[move] == " "]
-    #Going first, 1st move, take top left
-    if len(available_moves) == 9 and boardstate["TL"] == " ":
-        boardstate["TL"] = cpu_letter
-        return
-    #Going second, 1st move, take mid
-    if len(available_moves) == 8 and boardstate["MM"] == " ":
-        boardstate["MM"] = cpu_letter
-        return
-    if trytowin():
-        return
-    if trytoblock():
-        return
-    if aimfortwo():
-        return
-    #if no moves, bail out
-    if not available_moves:
-         return
-    #Take a random move if no heuristic found
-    move = random.choice(available_moves)
-    boardstate[move] = cpu_letter
+
+def findPossibleMoves(game):
+    possibleMoves = []
+    for square in valid_moves:
+        if game[square] == " ":
+            possibleMoves.append(square)
+    return possibleMoves
+
+def scoreGame(game, depth):
+    winner = determineWinner(game)
+    if winner == "cpu":
+        return 10 - depth
+    elif winner == "player":
+        return depth - 10
+    else:
+         return 0
+
+def determineWinner(game):
+    for positions in winning_positions:
+        values = [game[pos] for pos in positions]
+        if values.count(whosewho["cpu"]) == 3:
+            return "cpu"
+        elif values.count(whosewho["player"]) == 3:
+            return "player"
+    return None
+
+def minimax(game, depth, maximizingPlayer, XorO):
+    # Base Case
+    possibleMoves = findPossibleMoves(game)
+    winner = determineWinner(game)
+    if winner is not None or len(possibleMoves) == 0:
+        return {"score": scoreGame(game, depth), "move": None}
+    if depth == 0:
+        return {"score": scoreGame(game, depth), "move": None}
+    # Recursive Case
+    newChar = "O" if XorO == "X" else "X"
+    bestMove = {
+        "score": float('-inf') if maximizingPlayer else float('inf'),
+        "move": None
+    }
+    for move in possibleMoves:
+        newGame = game.copy()
+        newGame[move] = XorO
+        eval = minimax(newGame, depth - 1, not maximizingPlayer, newChar)
+        if maximizingPlayer:
+            if eval["score"] > bestMove["score"]:
+                bestMove = {"score": eval["score"], "move": move}
+        else:
+            if eval["score"] < bestMove["score"]:
+                bestMove = {"score": eval["score"], "move": move}
+    return bestMove
+
+
+
     
+def cpu_move():
+    depth = len(findPossibleMoves(boardstate))
+    decision = minimax(boardstate, depth, True, whosewho["cpu"])
+    if decision["move"] is not None:
+        boardstate[decision["move"]] = whosewho["cpu"]
+        return
+    available_moves = [move for move in valid_moves if boardstate[move] == " "]
+    # #Going first, 1st move, take top left
+    # if len(available_moves) == 9 and boardstate["TL"] == " ":
+    #     boardstate["TL"] = whosewho["cpu"]
+    #     return
+    # #Going second, 1st move, take mid
+    # if len(available_moves) == 8 and boardstate["MM"] == " ":
+    #     boardstate["MM"] = whosewho["cpu"]
+    #     return
+    # if trytowin():
+    #     return
+    # if trytoblock():
+    #     return
+    # if aimfortwo():
+    #     return
+    # #if no moves, bail out
+    # if not available_moves:
+    #      return
+    # #Take a random move if no heuristic found
+    move = random.choice(available_moves)
+    boardstate[move] = whosewho["cpu"]
+    return
      
 
 
