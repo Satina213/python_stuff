@@ -15,7 +15,7 @@ boardstate = {
      "BR": " ",
 }
 
-valid_moves = ["TL","TM","TR","ML","MM","MR","BL","BM","BR"]
+valid_moves = ["BL", "BM", "BR", "ML", "MM", "MR", "TL", "TM", "TR"]
 winning_positions = [
     ["TL", "TM", "TR"],  # Top row
     ["ML", "MM", "MR"],  # Middle row
@@ -148,9 +148,14 @@ def get_input():
         if user_move == "HELP":
             explanation()
             continue
-        if user_move in valid_moves and boardstate[user_move] == " ":
-            boardstate[user_move] = whosewho["player"]
+        try:
+            user_move = int(user_move) - 1
+            boardstate[valid_moves[user_move]] = whosewho["player"]
             return
+        except ValueError:
+            if user_move in valid_moves and boardstate[user_move] == " ":
+                boardstate[user_move] = whosewho["player"]
+                return
         print("Invalid move. You can type 'help' for an explanation")
 
 def aimfortwo():
@@ -181,8 +186,6 @@ def trytoblock():
             boardstate[positions[empty_index]] = whosewho["cpu"]
             return True  # Move was made, return early
     return False  # No winning move found
-
-
 
 def findPossibleMoves(game):
     possibleMoves = []
